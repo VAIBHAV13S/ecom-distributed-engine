@@ -5,37 +5,48 @@ on:
     branches:
       - main
       - master
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        service:
-          [
-            identity-service,
-            catalog-service,
-            cart-service,
-            order-service,
-            billing-service,
-            notification-service,
-          ]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Set up kubectl
-        uses: azure/setup-kubectl@v1
+        uses: azure/setup-kubectl@v3
 
-      - name: Authenticate to Kubernetes
-        uses: azure/cli@v1
-        with:
-          azcliversion: "2.0.72"
-          inlineScript: "echo 'Authenticated to Kubernetes'"
-
-      - name: Deploy to Kubernetes
+      - name: Configure Remote Kubeconfig (if secret is provided)
+        if: "${{ secrets.KUBECONFIG != '' }}"
         run: |
-          kubectl apply -f ${{ matrix.service }}/deployment.yaml
-          kubectl apply -f ${{ matrix.service }}/service.yaml
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" > $HOME/.kube/config
+
+      - name: Start Kind Cluster (if no remote kubeconfig provided)
+        if: "${{ secrets.KUBECONFIG == '' }}"
+        uses: helm/kind-action@v1
+
+      - name: Deploy Services to Kubernetes
+        run: |
+          services=(identity-service catalog-service cart-service order-service billing-service notification-service)
+          for svc in "${services[@]}"; do
+            echo "----------------------------------------"
+            echo "Deploying $svc..."
+            kubectl apply -f "$svc/deployment.yaml"
+            kubectl apply -f "$svc/service.yaml"
+          done
+
+      - name: Verify Cluster State
+        run: |
+          echo "=== Deployments ==="
+          kubectl get deployments -A
+          echo "=== Services ==="
+          kubectl get services -A
+          echo "=== Pods ==="
+          kubectl get pods -A

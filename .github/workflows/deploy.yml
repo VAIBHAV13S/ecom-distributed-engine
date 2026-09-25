@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -36,7 +37,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      - name: Log in to Docker Hub
+      - name: Log in to Docker Hub (if secrets present)
+        if: "${{ secrets.DOCKER_USERNAME != '' && secrets.DOCKER_PASSWORD != '' }}"
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -47,12 +49,14 @@ jobs:
         with:
           context: ./${{ matrix.service }}
           file: ./${{ matrix.service }}/Dockerfile
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest
+          push: ${{ secrets.DOCKER_USERNAME != '' && secrets.DOCKER_PASSWORD != '' }}
+          tags: ${{ secrets.DOCKER_USERNAME || 'ecomengine' }}/${{ matrix.service }}:latest
 
-      - name: Deploy to Docker Swarm
+      - name: Initialize Docker Swarm & Deploy
         run: |
+          docker swarm init || true
           docker stack deploy -c docker-compose.yml ecom-distributed-engine
 
       - name: Logout from Docker Hub
+        if: "${{ secrets.DOCKER_USERNAME != '' && secrets.DOCKER_PASSWORD != '' }}"
         run: docker logout

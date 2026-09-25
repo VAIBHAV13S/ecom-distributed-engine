@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+  workflow_dispatch:
 
 jobs:
   build-and-push:
@@ -37,19 +38,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      - name: Log in to Docker Hub
+      - name: Log in to Docker Hub (if secrets present)
+        if: "${{ secrets.DOCKER_USERNAME != '' && secrets.DOCKER_PASSWORD != '' }}"
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push Docker images
+      - name: Build and Push Docker Images
         uses: docker/build-push-action@v3
         with:
           context: ./${{ matrix.service }}
           file: ./${{ matrix.service }}/Dockerfile
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/${{ matrix.service }}:latest
+          push: ${{ secrets.DOCKER_USERNAME != '' && secrets.DOCKER_PASSWORD != '' }}
+          tags: ${{ secrets.DOCKER_USERNAME || 'ecomengine' }}/${{ matrix.service }}:latest
 
       - name: Logout from Docker Hub
+        if: "${{ secrets.DOCKER_USERNAME != '' && secrets.DOCKER_PASSWORD != '' }}"
         run: docker logout
