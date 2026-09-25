@@ -1,0 +1,22 @@
+{
+  "name": "ecom-distributed-engine",
+  "version": "1.0.0",
+  "description": "Production-grade distributed e-commerce backend built on Node.js, Express, MongoDB, Docker, and Nginx API Gateway.",
+  "scripts": {
+    "start": "docker compose up",
+    "build": "docker compose build",
+    "down": "docker compose down"
+  },
+  "keywords": [
+    "microservices",
+    "ecommerce",
+    "docker",
+    "nodejs",
+    "express",
+    "mongodb",
+    "nginx",
+    "distributed-systems"
+  ],
+  "author": "",
+  "license": "MIT"
+}

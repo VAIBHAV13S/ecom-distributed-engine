@@ -1,0 +1,120 @@
+version: "3.8"
+
+name: ecom-distributed-engine
+
+services:
+  identity-service:
+    build: ./identity-service
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGO_URI=${MONGO_URI_IDENTITY:-mongodb://mongo:27017/ecom-identity}
+      - JWT_SECRET=${JWT_SECRET:-ecom_jwt_super_secret_key}
+    networks:
+      - ecom-network
+    depends_on:
+      - mongo
+    deploy:
+      replicas: 2
+
+  catalog-service:
+    build: ./catalog-service
+    ports:
+      - "5001:5001"
+    environment:
+      - MONGO_URI=${MONGO_URI_CATALOG:-mongodb://mongo:27017/ecom-catalog}
+    networks:
+      - ecom-network
+    depends_on:
+      - mongo
+    deploy:
+      replicas: 2
+
+  cart-service:
+    build: ./cart-service
+    ports:
+      - "5002:5002"
+    environment:
+      - MONGO_URI=${MONGO_URI_CART:-mongodb://mongo:27017/ecom-cart}
+      - CATALOG_SERVICE_URI=http://catalog-service:5001
+    networks:
+      - ecom-network
+    depends_on:
+      - mongo
+      - catalog-service
+    deploy:
+      replicas: 2
+
+  order-service:
+    build: ./order-service
+    ports:
+      - "5003:5003"
+    environment:
+      - MONGO_URI=${MONGO_URI_ORDER:-mongodb://mongo:27017/ecom-orders}
+      - CATALOG_SERVICE_URI=http://catalog-service:5001
+    networks:
+      - ecom-network
+    depends_on:
+      - mongo
+      - catalog-service
+    deploy:
+      replicas: 2
+
+  billing-service:
+    build: ./billing-service
+    ports:
+      - "5004:5004"
+    environment:
+      - MONGO_URI=${MONGO_URI_BILLING:-mongodb://mongo:27017/ecom-billing}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+    networks:
+      - ecom-network
+    depends_on:
+      - mongo
+    deploy:
+      replicas: 2
+
+  notification-service:
+    build: ./notification-service
+    ports:
+      - "5005:5005"
+    environment:
+      - NODEMAILER_EMAIL=${NODEMAILER_EMAIL}
+      - NODEMAILER_PASSWORD=${NODEMAILER_PASSWORD}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+    networks:
+      - ecom-network
+
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - ecom-network
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    networks:
+      - ecom-network
+    depends_on:
+      - identity-service
+      - catalog-service
+      - cart-service
+      - order-service
+      - billing-service
+      - notification-service
+
+volumes:
+  mongo-data:
+
+networks:
+  ecom-network:
+    driver: bridge
